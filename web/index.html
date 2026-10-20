@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kronos Lab</title>
+<meta name="description" content="Kronos forecasts for NSE stocks, with an honest test of whether they work.">
+<meta name="theme-color" content="#EDF1F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121A2C" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 22 L14 16 L28 6 L28 26 Z' fill='%23E39B2D' opacity='.55'/%3E%3Cpath d='M4 22 L14 16 L28 15' stroke='%231A2747' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 22 L14 16 L28 6 L28 26 Z" class="brand-cone"/><path d="M4 22 L14 16 L28 15" class="brand-line"/></svg>
+      <span>Kronos Lab</span>
+    </div>
+    <a href="#forecast" data-tab="forecast" class="tab">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-5 4 3 8-8"/></svg>
+      <span>Forecast</span>
+    </a>
+    <a href="#scanner" data-tab="scanner" class="tab">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6"/></svg>
+      <span>Scanner</span>
+    </a>
+    <a href="#reality" data-tab="reality" class="tab">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>
+      <span>Reality check</span>
+    </a>
+    <p class="rail-note" id="model-state"></p>
+  </nav>
+
+  <main>
+    <a class="verdict-strip" id="verdict-strip" href="#reality" hidden></a>
+
+    <!-- Forecast -->
+    <section id="view-forecast" class="view" aria-labelledby="h-forecast">
+      <h1 id="h-forecast">Where could it go next?</h1>
+      <p class="lede">Pick a stock. Kronos draws eight possible paths for the next 20 trading days. The wider the cone, the less sure it is.</p>
+
+      <form class="search" id="forecast-form" autocomplete="off">
+        <label for="symbol" class="sr-only">Stock symbol</label>
+        <input id="symbol" name="symbol" list="symbol-list" placeholder="RELIANCE, TCS, INFY" required maxlength="24" spellcheck="false" autocapitalize="characters">
+        <datalist id="symbol-list"></datalist>
+        <button type="submit" id="forecast-btn">Forecast</button>
+      </form>
+
+      <div id="forecast-out" class="forecast-out" aria-live="polite">
+        <div class="empty">
+          <p>Pick a stock to see its forecast cone.</p>
+          <div class="chips" id="quick-picks"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scanner -->
+    <section id="view-scanner" class="view" aria-labelledby="h-scanner" hidden>
+      <h1 id="h-scanner">Your stocks, ranked by Kronos</h1>
+      <p class="lede">Every stock forecast 20 trading days ahead, best expected return first. Updated each weekday evening after the market closes.</p>
+      <div class="scan-head">
+        <p id="scan-meta" class="meta"></p>
+        <a id="watch-edit" class="secondary-link" hidden target="_blank" rel="noopener">Edit watchlist</a>
+      </div>
+      <div id="scan-out"></div>
+    </section>
+
+    <!-- Reality check -->
+    <section id="view-reality" class="view" aria-labelledby="h-reality" hidden>
+      <h1 id="h-reality">Does Kronos actually work?</h1>
+      <p class="lede">Kronos was trained on market data up to June 2024. Here it forecasts every month since then, for periods it never saw, and we check what really happened.</p>
+      <div id="reality-out"></div>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

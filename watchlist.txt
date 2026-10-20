@@ -1,0 +1,5 @@
+# Your extra stocks. One NSE symbol per line (e.g. CUPID, GLAND, IRCTC).
+# The Nifty 50 is always included. Lines starting with # are ignored.
+# Edit this file on GitHub (pencil icon) and the site updates within ~15 minutes.
+CUPID
+GLAND
