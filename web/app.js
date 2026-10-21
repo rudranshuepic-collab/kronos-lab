@@ -511,7 +511,7 @@ function renderPicks() {
       <dl class="plan">
         <div><dt>Buy</dt><dd>${qty ? `<strong>${qty} shares</strong> at the open on ${weekday(p.buy_date)}, about ${rupees(value)}` : `<strong>Not affordable</strong> at ${rupees(each)} per stock; one share is ${inr(r.last_close)}`}</dd></div>
         <div><dt>Skip if it opens above</dt><dd>${inr(p.buy_limit)}, which is 2% over the last close of ${inr(r.last_close)}</dd></div>
-        <div><dt>Sell</dt><dd><strong>At the open on ${weekday(p.sell_date)}</strong>, whatever the price. If that's a market holiday, the next trading day.</dd></div>
+        <div><dt>Sell</dt><dd><strong>At the open on ${weekday(p.sell_date)}</strong>, whatever the price. That's 20 trading days; push it back a day for each market holiday in between.</dd></div>
         <div><dt>Emergency stop</dt><dd>Sell early if it closes below ${inr(p.stop)}. Extra protection, not part of the tested rule.</dd></div>
         <div><dt>Kronos's price guess</dt><dd>${inr(p.kronos_price)}. Use it as a direction hint, not a target; its guesses run too confident.</dd></div>
         <div><dt>Charges, buy and sell</dt><dd>${qty ? `About ${rupees(charges)}, including STT, stamp duty and the ₹18 demat fee on selling` : "None, since nothing is bought. Raise the amount to include it."}</dd></div>
