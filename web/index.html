@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kronos Lab</title>
 <meta name="description" content="Kronos forecasts for NSE stocks, with an honest test of whether they work.">
@@ -20,6 +21,10 @@
       <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 22 L14 16 L28 6 L28 26 Z" class="brand-cone"/><path d="M4 22 L14 16 L28 15" class="brand-line"/></svg>
       <span>Kronos Lab</span>
     </div>
+    <a href="#picks" data-tab="picks" class="tab">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.1 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.1 6.1-.7z"/></svg>
+      <span>Picks</span>
+    </a>
     <a href="#forecast" data-tab="forecast" class="tab">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-5 4 3 8-8"/></svg>
       <span>Forecast</span>
@@ -27,6 +32,10 @@
     <a href="#scanner" data-tab="scanner" class="tab">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6"/></svg>
       <span>Scanner</span>
+    </a>
+    <a href="#track" data-tab="track" class="tab">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16M8 14l3-3 3 2 5-6"/></svg>
+      <span>Track record</span>
     </a>
     <a href="#reality" data-tab="reality" class="tab">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>
@@ -38,8 +47,36 @@
   <main>
     <a class="verdict-strip" id="verdict-strip" href="#reality" hidden></a>
 
+    <!-- Picks -->
+    <section id="view-picks" class="view" aria-labelledby="h-picks">
+      <h1 id="h-picks">Today's picks</h1>
+      <p class="lede" id="picks-lede">The Nifty 50 stocks Kronos ranks highest for the next 20 trading days, each with a plan.</p>
+      <div class="capital">
+        <label for="capital">Money to invest</label>
+        <div class="capital-input"><span aria-hidden="true">₹</span><input id="capital" type="number" inputmode="numeric" min="5000" step="5000" value="100000"></div>
+        <p class="meta" id="capital-note"></p>
+      </div>
+      <div id="picks-out"></div>
+      <div class="howto">
+        <h2>How to use this list</h2>
+        <ol>
+          <li>Buy every pick at the next morning's open, the same amount of money in each. Skip any stock that opens above its "skip if above" price.</li>
+          <li>Hold. Don't add the next evening's picks; one list at a time.</li>
+          <li>Sell everything at the open on the sell date, whatever the price. Then take that evening's list.</li>
+        </ol>
+        <p>This is the rule the Reality check tested. The emergency stop is extra protection and was not part of that test.</p>
+      </div>
+    </section>
+
+    <!-- Track record -->
+    <section id="view-track" class="view" aria-labelledby="h-track" hidden>
+      <h1 id="h-track">How past picks did</h1>
+      <p class="lede">Every evening's picks are saved for good. After 20 trading days each one is scored: bought at the next open, sold at the open 20 days later, charges taken off, compared with the average Nifty 50 stock over the same days.</p>
+      <div id="track-out"></div>
+    </section>
+
     <!-- Forecast -->
-    <section id="view-forecast" class="view" aria-labelledby="h-forecast">
+    <section id="view-forecast" class="view" aria-labelledby="h-forecast" hidden>
       <h1 id="h-forecast">Where could it go next?</h1>
       <p class="lede">Pick a stock. Kronos draws eight possible paths for the next 20 trading days. The wider the cone, the less sure it is.</p>
 

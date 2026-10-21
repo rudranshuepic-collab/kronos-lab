@@ -12,7 +12,7 @@ Research tool only. It places no orders and is not investment advice.
 
 ## How it runs (₹0)
 
-GitHub Actions runs `python -m app.build_site` at 5:00 pm IST, Monday to Friday. The script downloads
+GitHub Actions runs `python -m app.build_site` at about 5 pm IST, Monday to Friday. The script downloads
 daily candles from Yahoo Finance, runs Kronos on a free GitHub runner, writes every result as
 JSON, and publishes the site to GitHub Pages. There is no server between runs.
 

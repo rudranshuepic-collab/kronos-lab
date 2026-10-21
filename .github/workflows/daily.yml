@@ -4,7 +4,7 @@ name: Daily Kronos update
 
 on:
   schedule:
-    - cron: "30 11 * * 1-5"      # 11:30 UTC = 5:00 pm IST, Monday to Friday
+    - cron: "17 11 * * 1-5"      # 11:17 UTC = 4:47 pm IST, Mon-Fri (off the busy :00/:30 slots)
   workflow_dispatch:
   push:
     branches: [main]
@@ -43,12 +43,14 @@ jobs:
       - name: Run Kronos and build the site
         run: python -m app.build_site
 
-      - name: Save reality-check cache
+      # Saving the ledger every run is also what keeps GitHub from switching the schedule
+      # off (public repos lose scheduled workflows after 60 days without activity).
+      - name: Save ledger and reality-check cache
         run: |
           git config user.name "kronos-bot"
           git config user.email "kronos-bot@users.noreply.github.com"
-          git add data/reality_check.json
-          git diff --cached --quiet || (git commit -m "Update reality check" && git push)
+          git add data/
+          git diff --cached --quiet || (git commit -m "Daily ledger update" && git pull --rebase && git push)
 
       - uses: actions/upload-pages-artifact@v3
         with:

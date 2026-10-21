@@ -5,10 +5,14 @@ Rules (no peeking):
   * Kronos's training data ends June 2024, so every forecast here is for a period the
     model never saw. The first rebalance date is the last trading day of July 2024.
   * Each month-end t, every stock is forecast using only candles up to t.
-  * Realised return = close[t + 20 trading days] / close[t] - 1.
+  * Trade the way a person running this site could: forecast after the close on t, buy at
+    the open of t+1, sell at the open 20 trading days later (realised_oo). Older cache rows
+    also keep the close-to-close return (realised) for reference.
   * The strategy holds the 10 stocks with the highest Kronos expected return, equal weight,
     and is compared with (a) the equal-weight universe and (b) plain 12-1 month momentum.
-  * Costs: 0.20% round trip on every name that changes (delivery STT + charges + slippage).
+  * Costs: the full Zerodha delivery stack (STT both sides, stamp duty, exchange + GST, the
+    ~₹18 demat charge per sell at a ₹10,000 position, 5 bps slippage each side), about 0.5%
+    round trip, charged on every name that changes.
 
 Caveat: the universe is today's Nifty 50, so stocks that dropped out are missing
 (survivorship bias). This flatters every strategy equally, including the benchmark.
@@ -28,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from .data import UNIVERSES, display_symbol, get_many, to_yahoo
+from .ledger import round_trip_cost
 from .engine import DEFAULT_LOOKBACK, TRAINING_DATA_END, KronosEngine
 
 log = logging.getLogger("kronos.reality")
@@ -36,7 +41,8 @@ log = logging.getLogger("kronos.reality")
 HORIZON = 20
 SAMPLES = 5
 TOP_N = 10
-COST_ROUND_TRIP = 0.0020
+POSITION_RUPEES = 10_000            # ₹1L across 10 names; sets the per-trade demat charge
+COST_ROUND_TRIP = round_trip_cost(POSITION_RUPEES)
 FIRST_REBALANCE_MONTH = "2024-07"   # first month-end strictly after the training cutoff
 MOM_LOOKBACK, MOM_SKIP = 252, 21     # 12-1 month momentum baseline
 PASS_RANK_IC, PASS_T = 0.03, 2.0     # gate: mean RankIC and its t-stat
@@ -76,6 +82,28 @@ def _save(cache: dict) -> None:
     os.replace(tmp, CACHE_FILE)
 
 
+def _open_to_open(df: pd.DataFrame, signal_date: str) -> float | None:
+    """Buy at the open after signal_date, sell at the open HORIZON trading days later."""
+    pos = df.index.searchsorted(pd.Timestamp(signal_date), side="right")
+    if pos + HORIZON >= len(df):
+        return None
+    entry, exit_ = float(df["open"].iloc[pos]), float(df["open"].iloc[pos + HORIZON])
+    return exit_ / entry - 1 if entry > 0 else None
+
+
+def reprice(cache: dict, hist: dict[str, pd.DataFrame]) -> int:
+    """Fill realised_oo (next-open entry and exit) for cached rows that don't have it yet."""
+    by_sym = {display_symbol(k): v for k, v in hist.items()}
+    n = 0
+    for r in cache["rows"]:
+        if r.get("realised_oo") is None and r["symbol"] in by_sym:
+            v = _open_to_open(by_sym[r["symbol"]], r["date"])
+            if v is not None:
+                r["realised_oo"] = v
+                n += 1
+    return n
+
+
 def run(engine: KronosEngine, universe: str = "nifty50", progress=None,
         stop: threading.Event | None = None) -> dict:
     """Compute any month-ends not yet in the cache. Safe to stop and resume."""
@@ -90,6 +118,8 @@ def run(engine: KronosEngine, universe: str = "nifty50", progress=None,
     todo = [d for d in _month_end_dates(cal)
             if d.strftime("%Y-%m-%d") not in done and cal.get_loc(d) + HORIZON < len(cal)]
     log.info("Reality check: %d periods to compute", len(todo))
+    if reprice(cache, hist):
+        _save(cache)
 
     for k, t in enumerate(todo):
         if stop is not None and stop.is_set():
@@ -134,6 +164,7 @@ def run(engine: KronosEngine, universe: str = "nifty50", progress=None,
                                  "n": len(rows)})
         cache["periods"].sort(key=lambda p: p["date"])
         cache["updated"] = datetime.now(timezone.utc).isoformat()
+        reprice(cache, hist)
         _save(cache)   # checkpoint every month so a restart loses at most one period
     if progress:
         progress(len(todo), len(todo), "Done")
@@ -146,6 +177,10 @@ def summarise(cache: dict | None = None) -> dict:
     rows = pd.DataFrame(cache.get("rows", []))
     if rows.empty:
         return {"ready": False, "periods": 0}
+    # Tradeable returns (next-open in, open out) once they're available; close-to-close otherwise.
+    tradeable = "realised_oo" in rows and rows["realised_oo"].notna().mean() > 0.9
+    if tradeable:
+        rows["realised"] = rows["realised_oo"]
     out_periods = []
     prev_k, prev_m = set(), set()
     eq_k = eq_m = eq_b = 1.0
@@ -192,6 +227,7 @@ def summarise(cache: dict | None = None) -> dict:
         "first": p["date"].iloc[0], "last": p["date"].iloc[-1],
         "stocks_per_period": int(p["n"].median()),
         "horizon_days": HORIZON, "samples": SAMPLES, "top_n": TOP_N, "cost_round_trip": COST_ROUND_TRIP,
+        "entry": "next_open" if tradeable else "close", "position_rupees": POSITION_RUPEES,
         "mean_rank_ic": mean_ic, "t_stat": t_stat,
         "pct_months_ic_positive": float((ics > 0).mean()) if n else float("nan"),
         "mom_mean_rank_ic": float(mics.mean()) if len(mics) else float("nan"),

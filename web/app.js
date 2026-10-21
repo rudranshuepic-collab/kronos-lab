@@ -7,6 +7,11 @@ let realitySummary = null;
 let lastForecast = null;
 let status = null;
 let scanCache = null;
+let trackCache = null;
+let trackFilter = "all";
+const STORE_KEY = "kronos-capital";
+const weekday = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+const rupees = (x) => "₹" + Math.round(x).toLocaleString("en-IN");
 
 // ── Formatting ─────────────────────────────────────────
 const pct = (x, d = 1) => (x == null || Number.isNaN(x) ? "–" : `${x > 0 ? "+" : ""}${(x * 100).toFixed(d)}%`);
@@ -59,19 +64,26 @@ function niceTicks(lo, hi, count = 4) {
 
 // ── Router ─────────────────────────────────────────────
 function route() {
-  const tab = (location.hash || "#forecast").slice(1);
-  const valid = ["forecast", "scanner", "reality"].includes(tab) ? tab : "forecast";
+  const tab = (location.hash || "#picks").slice(1);
+  const valid = ["picks", "forecast", "scanner", "track", "reality"].includes(tab) ? tab : "picks";
   document.querySelectorAll(".view").forEach((v) => (v.hidden = v.id !== `view-${valid}`));
   document.querySelectorAll(".tab").forEach((t) =>
     t.dataset.tab === valid ? t.setAttribute("aria-current", "page") : t.removeAttribute("aria-current"));
   if (valid === "scanner") loadScan();
+  if (valid === "picks") loadPicks();
+  if (valid === "track") loadTrack();
   if (valid === "reality") loadReality();
   window.scrollTo({ top: 0 });
 }
 window.addEventListener("hashchange", route);
 
 // ── Status ─────────────────────────────────────────────
-async function loadStatus() {
+let statusPromise = null;
+function loadStatus() {
+  statusPromise = statusPromise || fetchStatus();
+  return statusPromise;
+}
+async function fetchStatus() {
   try {
     status = await getJSON("data/status.json");
     $("#model-state").textContent =
@@ -86,6 +98,7 @@ async function loadStatus() {
     }
   } catch (err) {
     $("#model-state").textContent = err.message;
+    statusPromise = null;
   }
 }
 
@@ -177,6 +190,7 @@ function renderForecast(f) {
       <div class="fact"><div class="v"><span class="${cls(s.p10_return)}">${pct(s.p10_return)}</span> to <span class="${cls(s.p90_return)}">${pct(s.p90_return)}</span></div><div class="k">where most paths finish</div></div>
       <div class="fact"><div class="v ${cls(recent)}">${pct(recent)}</div><div class="k">move over the last ${f.horizon} trading days, for context</div></div>
     </div>
+    ${pastCalls(f)}
     <p class="caveat">This is a model's guess from price and volume alone. It doesn't know about news, results or the wider market, and the range is usually narrower than real life.</p>`;
   lastForecast = f;
   drawForecastChart($("#fc-chart"), f);
@@ -341,7 +355,7 @@ function renderReality(s) {
       <div class="score">
         <div class="v ${cls(s.kronos_total - s.bench_total)}">${pct(s.kronos_total)}</div><div class="vs">Nifty 50 equal-weight: ${pct(s.bench_total)}, momentum: ${pct(s.mom_total)}</div>
         <h3>Kronos's top ${s.top_n} picks, after costs</h3>
-        <p>Buying its ${s.top_n} highest-forecast stocks each month and holding ${s.horizon_days} days, with ${(s.cost_round_trip * 100).toFixed(2)}% charged for every swap.</p>
+        <p>Buying its ${s.top_n} highest-forecast stocks each month at the next open and holding ${s.horizon_days} trading days, with about ${(s.cost_round_trip * 100).toFixed(2)}% in real charges for every swap.</p>
       </div>
       <div class="score">
         <div class="v">${Math.round(s.band_coverage * 100)}%</div><div class="vs">An honest range would catch about ${Math.round(s.band_target * 100)}%</div>
@@ -355,7 +369,8 @@ function renderReality(s) {
     <details class="method"><summary>How this test works</summary><ul>
       <li>Kronos's training data ends in June 2024, so every month tested here is one it has never seen.</li>
       <li>At each month-end it sees only the previous 256 trading days of candles, about a year. Nothing from the future leaks in.</li>
-      <li>Returns are close-to-close over the next ${s.horizon_days} trading days, using split- and dividend-adjusted prices from Yahoo Finance.</li>
+      <li>${s.entry === "next_open" ? `Trades happen the way you could actually do them: forecast after the close, buy at the next morning's open, sell at the open ${s.horizon_days} trading days later.` : `Returns are close-to-close over the next ${s.horizon_days} trading days.`} Prices are split- and dividend-adjusted, from Yahoo Finance.</li>
+      <li>Charges are the full Zerodha delivery stack at ${rupees(s.position_rupees || 10000)} a position: STT on both sides, stamp duty, exchange fees with GST, the ₹18 demat charge on each sale and a small slippage allowance. About ${(s.cost_round_trip * 100).toFixed(2)}% per round trip.</li>
       <li>The stock list is today's Nifty 50, so companies that dropped out are missing. That flatters every line equally, the benchmark included.</li>
       <li>Each forecast uses ${s.samples} sampled paths with a fixed random seed, so rerunning the test gives the same answer.</li>
     </ul></details>`;
@@ -427,6 +442,144 @@ window.addEventListener("resize", () => {
     }
   }, 150);
 });
+
+// ── Past calls for one stock (Forecast tab) ────────────
+function pastCalls(f) {
+  const rows = (f.track || []).filter((r) => r.status === "closed").slice(0, 8);
+  if (!rows.length) {
+    return `<div class="panel past"><h3>Past calls for ${esc(f.symbol)}</h3><p class="note">No finished forecasts yet. Each one is scored 20 trading days after it's made.</p></div>`;
+  }
+  const right = rows.filter((r) => r.direction_right).length;
+  return `<div class="panel past"><h3>Past calls for ${esc(f.symbol)}</h3>
+    <p class="note">Kronos got the direction right ${right} of the last ${rows.length} times for this stock.</p>
+    <table class="mini-table"><thead><tr><th>Made on</th><th class="num">Kronos said</th><th class="num">What happened</th><th>Direction</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr><td>${fmtDate(r.signal_date, { day: "numeric", month: "short" })}${r.source === "backfill" ? ' <span class="tag">backfilled</span>' : ""}</td>
+      <td class="num ${cls(r.exp_ret)}">${pct(r.exp_ret)}</td><td class="num ${cls(r.net)}">${pct(r.net)}</td>
+      <td>${r.direction_right ? "Right" : "Wrong"}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// ── Picks ──────────────────────────────────────────────
+function getCapital() {
+  let v = null;
+  try { v = Number(localStorage.getItem(STORE_KEY)); } catch { /* storage blocked */ }
+  return v && v >= 1000 ? v : (status && status.default_capital) || 100000;
+}
+function setCapital(v) {
+  try { localStorage.setItem(STORE_KEY, String(v)); } catch { /* ignore */ }
+}
+
+async function loadPicks() {
+  try {
+    if (!status) await loadStatus();
+    scanCache = scanCache || await getJSON("data/scan.json");
+    $("#capital").value = getCapital();
+    renderPicks();
+  } catch (err) {
+    $("#picks-out").innerHTML = `<div class="error">${esc(err.message)}</div>`;
+  }
+}
+
+function chargesFor(value) {
+  // Round-trip estimate from the same model the Track record uses.
+  return value * status.cost.pct + status.cost.dp_per_sell;
+}
+
+function renderPicks() {
+  const picks = scanCache.results.filter((r) => r.pick);
+  const capital = Math.max(0, Number($("#capital").value) || 0);
+  const each = picks.length ? capital / picks.length : 0;
+  $("#picks-lede").textContent = picks.length
+    ? `The ${picks.length} Nifty 50 stocks Kronos ranks highest for the next 20 trading days, from prices up to ${fmtDate(status.signal_date)}. Each comes with a plan.`
+    : "No picks today.";
+  $("#capital-note").textContent = picks.length ? `${rupees(each)} in each of ${picks.length} stocks` : "";
+  if (!picks.length) {
+    $("#picks-out").innerHTML = `<p class="empty">Kronos doesn't expect any Nifty 50 stock to rise over the next 20 trading days, so there are no picks tonight. Sitting out is a valid result.</p>`;
+    return;
+  }
+  let spent = 0;
+  $("#picks-out").innerHTML = `<ol class="picks">${picks.map((r) => {
+    const p = r.plan;
+    const qty = Math.floor(each / p.buy_limit);
+    const value = qty * r.last_close;
+    spent += value;
+    const charges = qty ? chargesFor(value) : 0;
+    return `<li class="pick">
+      <div class="pick-head">
+        <button type="button" class="pick-sym" data-sym="${esc(r.symbol)}">${esc(r.symbol)}</button>
+        <div class="pick-exp"><span class="${cls(r.expected_return)}">${pct(r.expected_return)}</span> expected in 20 trading days, ${Math.round(r.prob_up * 8)} of 8 paths up</div>
+      </div>
+      <dl class="plan">
+        <div><dt>Buy</dt><dd>${qty ? `<strong>${qty} shares</strong> at the open on ${weekday(p.buy_date)}, about ${rupees(value)}` : `<strong>Not affordable</strong> at ${rupees(each)} per stock; one share is ${inr(r.last_close)}`}</dd></div>
+        <div><dt>Skip if it opens above</dt><dd>${inr(p.buy_limit)}, which is 2% over the last close of ${inr(r.last_close)}</dd></div>
+        <div><dt>Sell</dt><dd><strong>At the open on ${weekday(p.sell_date)}</strong>, whatever the price. If that's a market holiday, the next trading day.</dd></div>
+        <div><dt>Emergency stop</dt><dd>Sell early if it closes below ${inr(p.stop)}. Extra protection, not part of the tested rule.</dd></div>
+        <div><dt>Kronos's price guess</dt><dd>${inr(p.kronos_price)}. Use it as a direction hint, not a target; its guesses run too confident.</dd></div>
+        <div><dt>Charges, buy and sell</dt><dd>${qty ? `About ${rupees(charges)}, including STT, stamp duty and the ₹18 demat fee on selling` : "None, since nothing is bought. Raise the amount to include it."}</dd></div>
+      </dl>
+    </li>`;
+  }).join("")}</ol>
+  <p class="meta spent">Total to invest: ${rupees(spent)} of ${rupees(capital)}. The rest stays as cash because shares only come in whole numbers.</p>`;
+  $("#picks-out").querySelectorAll(".pick-sym").forEach((b) => b.addEventListener("click", () => {
+    $("#symbol").value = b.dataset.sym; location.hash = "#forecast"; runForecast();
+  }));
+}
+
+$("#capital").addEventListener("input", () => {
+  const v = Number($("#capital").value);
+  if (v >= 1000) setCapital(v);
+  if (scanCache) renderPicks();
+});
+
+// ── Track record ───────────────────────────────────────
+async function loadTrack() {
+  try {
+    trackCache = trackCache || await getJSON("data/track.json");
+    renderTrack();
+  } catch (err) {
+    $("#track-out").innerHTML = `<div class="error">${esc(err.message)}</div>`;
+  }
+}
+
+function verdict(r) {
+  if (r.status === "open") return `<span class="chip-s open">Day ${r.days_held + 1} of 20</span>`;
+  if (r.status !== "closed") return `<span class="chip-s open">Waiting to buy</span>`;
+  const made = r.net > 0, beat = r.beat_market;
+  if (made && beat) return `<span class="chip-s good">Good</span>`;
+  if (!made && !beat) return `<span class="chip-s bad">Bad</span>`;
+  return `<span class="chip-s mixed">${made ? "Profit, lagged market" : "Loss, beat market"}</span>`;
+}
+
+function renderTrack() {
+  const t = trackCache, s = t.summary, p = s.picks || { n: 0 };
+  const out = $("#track-out");
+  const summaryHtml = p.n ? `
+    <div class="facts four">
+      <div class="fact"><div class="v">${p.n}</div><div class="k">picks finished their 20 days${s.picks_backfill.n ? `, ${s.picks_backfill.n} of them backfilled` : ""}</div></div>
+      <div class="fact"><div class="v">${Math.round(p.profitable * 100)}%</div><div class="k">made money after charges</div></div>
+      <div class="fact"><div class="v">${Math.round(p.beat_market * 100)}%</div><div class="k">beat the average Nifty 50 stock</div></div>
+      <div class="fact"><div class="v ${cls(p.avg_net - p.avg_market)}">${pct(p.avg_net)}</div><div class="k">average per pick, against ${pct(p.avg_market)} for the market</div></div>
+    </div>
+    <p class="caveat">Putting ${rupees(s.position_rupees)} into every finished pick would have ${p.rupees >= 0 ? "made" : "lost"} <strong class="${cls(p.rupees)}">${rupees(Math.abs(p.rupees))}</strong> after about ${(s.round_trip_cost * 100).toFixed(2)}% charges per trade. Across all ${s.all_closed} finished forecasts, Kronos called the direction right ${Math.round(s.direction_right * 100)}% of the time.${s.picks_backfill.n ? " Backfilled picks were computed today on past prices the model had never seen; live picks are recorded each evening and can't be edited." : ""}</p>`
+    : `<p class="empty">No pick has finished its 20 trading days yet. The first results appear about four weeks after the first recorded picks.</p>`;
+  const rows = t.picks.filter((r) => trackFilter === "all" || r.status === trackFilter);
+  out.innerHTML = `${summaryHtml}
+    <div class="seg" role="group" aria-label="Show">
+      ${["all", "open", "closed"].map((k) => `<button type="button" data-f="${k}" aria-pressed="${trackFilter === k}">${{ all: "All", open: "Still holding", closed: "Finished" }[k]}</button>`).join("")}
+    </div>
+    ${rows.length ? `<table class="scan-table track-table">
+      <thead><tr><th>Picked on</th><th>Stock</th><th class="num hide-sm">Kronos said</th><th class="num hide-sm">Bought at</th>
+      <th class="num">Result</th><th class="num hide-sm">Market</th><th>Verdict</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr>
+        <td>${fmtDate(r.signal_date, { day: "numeric", month: "short" })}${r.source === "backfill" ? '<br><span class="tag">backfilled</span>' : ""}</td>
+        <td><span class="sym">${esc(r.symbol)}</span></td>
+        <td class="num hide-sm ${cls(r.exp_ret)}">${pct(r.exp_ret)}</td>
+        <td class="num hide-sm">${r.entry != null ? inr(r.entry) : "–"}</td>
+        <td class="num ${cls(r.net)}">${r.net != null ? pct(r.net) : "–"}</td>
+        <td class="num hide-sm">${r.market != null ? pct(r.market) : "–"}</td>
+        <td>${verdict(r)}</td></tr>`).join("")}</tbody></table>`
+      : `<p class="empty">Nothing here yet.</p>`}`;
+  out.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => { trackFilter = b.dataset.f; renderTrack(); }));
+}
 
 // ── Boot ───────────────────────────────────────────────
 $("#forecast-form").addEventListener("submit", runForecast);
