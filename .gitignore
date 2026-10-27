@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 *.tmp
 vendor_kronos/
+
+# In-progress experiment caches (force-added when a run finishes)
+data/experiments/grid_*.json
+data/experiments/*.tmp
