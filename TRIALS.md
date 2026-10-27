@@ -14,6 +14,9 @@ Every configuration ever evaluated against the Reality Check or ledger, in order
 | 8 | 2026-10-27 | Settings grid: T=0.6, samples=8, lookback=90, horizon=10. Pre-registered, result pending | Jul 2024 – Aug 2026 | pending | pending | pending | pending |
 | 9 | 2026-10-27 | Settings grid: T=0.6, samples=10, lookback=256, horizon=20. Pre-registered, result pending | Jul 2024 – Aug 2026 | pending | pending | pending | pending |
 | 10 | 2026-10-27 | Settings grid: T=0.6, samples=10, lookback=90, horizon=10. Pre-registered, result pending | Jul 2024 – Aug 2026 | pending | pending | pending | pending |
+| 11 | 2026-10-27 | Reversal check on trial-2 forecasts: regress Kronos ranks on 5d/21d reversal, 12-1 momentum, 60d vol | Jul 2024 – Aug 2026 | residual 0.028 | 0.76 (NW) | – | Finding: 58% of Kronos's ranking is explained by these factors; the rest isn't significant |
+| 12 | 2026-10-27 | Baseline factor: plain 5-day reversal, same portfolio rules | Jul 2024 – Aug 2026 | 0.061 | 2.07 (NW) | +4.6% total top-10 net | Comparison only |
+| 13 | 2026-10-27 | Baseline factor: plain 21-day reversal, same portfolio rules | Jul 2024 – Aug 2026 | 0.045 | 1.21 (NW) | +19.0% total top-10 net | Comparison only |
 
 ## Pre-registered rules for trials 3–10 (written before any result was seen)
 
