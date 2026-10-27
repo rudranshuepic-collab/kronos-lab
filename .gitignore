@@ -7,3 +7,4 @@ vendor_kronos/
 # In-progress experiment caches (force-added when a run finishes)
 data/experiments/grid_*.json
 data/experiments/*.tmp
+data/experiments/fresh_*.json

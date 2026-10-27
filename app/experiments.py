@@ -4,6 +4,7 @@ experiments.py — pre-registered research runs (see TRIALS.md). Never changes t
     python -m app.experiments reversal     # is Kronos just short-term reversal? (uses Reality Check cache)
     python -m app.experiments grid         # trials 3-10: settings grid (slow; resumable)
     python -m app.experiments report       # print the grid results table
+    python -m app.experiments fresh        # trials 14-16: Nifty Next 150 fresh-stock test (slow; resumable)
 
 Rules (same as the Reality Check): month-end rebalances from Jul 2024, only data up to each
 date, buy at the next open, sell at the open `horizon` trading days later, full Zerodha
@@ -216,6 +217,78 @@ def grid_report() -> list[dict]:
     return out
 
 
+# ── Experiment 3: fresh-stock test on the Nifty Next 150 (trials 14-16) ──
+FRESH_FILE = os.path.join(OUT_DIR, "fresh_next150.json")
+FRESH_UNIVERSE = os.path.join(os.path.dirname(__file__), "..", "data", "universe", "nifty200_2026-10-27.csv")
+FRESH_SLIPPAGE = 0.0010          # 10 bps a side for smaller stocks (pre-registered)
+
+
+def next150() -> list[str]:
+    syms = pd.read_csv(FRESH_UNIVERSE)["Symbol"].str.strip().tolist()
+    return [s for s in syms if s not in set(NIFTY50)]
+
+
+def run_fresh() -> None:
+    T, S, L, H = BASELINE
+    names_all = next150()
+    hist = {display_symbol(k): v for k, v in get_many([to_yahoo(s) for s in names_all], period="max").items()}
+    if len(hist) < 120:
+        raise RuntimeError(f"Only {len(hist)} of 150 histories downloaded; refusing to run")
+    base_cache = json.load(open(combo_file(BASELINE)))
+    dates = [pd.Timestamp(d) for d in sorted(base_cache["done"])]       # identical 26 dates
+    cache = json.load(open(FRESH_FILE)) if os.path.exists(FRESH_FILE) else {"rows": [], "done": []}
+    eng = E.KronosEngine()
+    eng.load()
+    E.TEMPERATURE = T
+    for t in dates:
+        ds = t.strftime("%Y-%m-%d")
+        if ds in cache["done"]:
+            continue
+        t0 = time.time()
+        frames, names = [], []
+        for s, df in hist.items():
+            past = df.loc[:t]
+            if len(past) >= 257 and past.index[-1] == t:
+                frames.append(past)
+                names.append(s)
+        fcs = eng.forecast(frames, horizon=H, samples=S, lookback=L)
+        for s, past, f in zip(names, frames, fcs):
+            c0 = float(past["close"].iloc[-1])
+            fv = factor_values(hist[s], t) or {}
+            cache["rows"].append({"date": ds, "symbol": s, "pred": f.summary(c0)["expected_return"],
+                                  "rev21": fv.get("rev21"), "realised_oo": open_to_open(hist[s], t, H)})
+        cache["done"].append(ds)
+        tmp = FRESH_FILE + ".tmp"
+        json.dump(cache, open(tmp, "w"))
+        os.replace(tmp, FRESH_FILE)
+        log.info("fresh %s: %d stocks (%.0fs)", ds, len(names), time.time() - t0)
+
+
+def fresh_report() -> dict:
+    from . import ledger
+    d = pd.DataFrame(json.load(open(FRESH_FILE))["rows"]).dropna(subset=["pred", "rev21", "realised_oo"])
+    pr = lambda g, c: g[c].rank(pct=True)
+    d["blend"] = d.groupby("date", group_keys=False).apply(lambda g: (pr(g, "pred") + pr(g, "rev21")) / 2)
+    old = ledger.SLIPPAGE
+    ledger.SLIPPAGE = FRESH_SLIPPAGE
+    out = {}
+    try:
+        for name, col in (("A_kronos", "pred"), ("B_rev21", "rev21"), ("C_blend", "blend")):
+            st = portfolio_stats(d, col, "realised_oo")
+            years = {}
+            for y, g in d.assign(year=d.date.str[:4]).groupby("year"):
+                ics = [spearman(h[col], h["realised_oo"]) for _, h in g.groupby("date")]
+                years[y] = float(np.nanmean(ics))
+            st["ic_by_year"] = years
+            st["passes"] = bool(st["rank_ic"] >= 0.03 and st["t_nw"] >= 2.0 and st["net_excess_per_rebalance"] > 0
+                                and sum(v > 0 for v in years.values()) >= 2)
+            out[name] = st
+    finally:
+        ledger.SLIPPAGE = old
+    out["stocks_per_month"] = float(d.groupby("date").size().median())
+    return out
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     for noisy in ("httpx", "huggingface_hub", "yfinance"):
@@ -223,6 +296,11 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "report"
     if cmd == "reversal":
         print(json.dumps(run_reversal(), indent=1))
+    elif cmd == "fresh":
+        run_fresh()
+        print(json.dumps(fresh_report(), indent=1))
+    elif cmd == "fresh-report":
+        print(json.dumps(fresh_report(), indent=1))
     elif cmd == "grid":
         run_grid()
         print(json.dumps(grid_report(), indent=1))
