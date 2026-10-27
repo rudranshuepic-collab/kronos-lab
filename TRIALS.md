@@ -17,7 +17,9 @@ Every configuration ever evaluated against the Reality Check or ledger, in order
 | 11 | 2026-10-27 | Reversal check on trial-2 forecasts: regress Kronos ranks on 5d/21d reversal, 12-1 momentum, 60d vol | Jul 2024 – Aug 2026 | residual 0.028 | 0.76 (NW) | – | Finding: 58% of Kronos's ranking is explained by these factors; the rest isn't significant |
 | 12 | 2026-10-27 | Baseline factor: plain 5-day reversal, same portfolio rules | Jul 2024 – Aug 2026 | 0.061 | 2.07 (NW) | +4.6% total top-10 net | Comparison only |
 | 13 | 2026-10-27 | Baseline factor: plain 21-day reversal, same portfolio rules | Jul 2024 – Aug 2026 | 0.045 | 1.21 (NW) | +19.0% total top-10 net | Comparison only |
-
+| 14 | 2026-10-27 | Fresh-stock test A: Kronos as live (T=1.0, samples=8, 256/20) on the Nifty Next 150. Pre-registered, result pending | Jul 2024 – Aug 2026, 150 new stocks | pending | pending | pending | pending |
+| 15 | 2026-10-27 | Fresh-stock test B: plain 21-day reversal on the Nifty Next 150. Pre-registered, result pending | same | pending | pending | pending | pending |
+| 16 | 2026-10-27 | Fresh-stock test C: 50/50 rank blend of A and B on the Nifty Next 150. Pre-registered, result pending | same | pending | pending | pending | pending |
 ## Pre-registered rules for trials 3–10 (written before any result was seen)
 
 - Same 26 month-end rebalance dates for every combo (last trading day of Jul 2024 … Aug 2026),
@@ -45,3 +47,19 @@ Every configuration ever evaluated against the Reality Check or ledger, in order
   and 2026. The 90/10 versions swing hardest (RankIC about −0.15 in 2024, +0.17 in 2026).
 - Cost check: still positive with slippage at 2× and 3× (baseline +0.38% / +0.33% per rebalance).
 - Trial count so far: 13, all on the same 26 months. Treat any narrow winner as likely luck.
+
+## Pre-registered rules for trials 14–16 (written before any result was seen)
+
+- Universe: the 150 stocks in today's Nifty 200 that are NOT in our Nifty 50 list
+  (data/universe/nifty200_2026-10-27.csv). None were used in trials 1–13, so this is fresh
+  data. Caveat: it's today's list, so there's some survivorship bias; it applies to all
+  three candidates equally.
+- Same 26 month-end dates, a stock needs 257 bars of history to be included, top 10 equal
+  weight, buy at the next open, sell at the open 20 trading days later.
+- Charges: the full Zerodha stack at ₹10,000 a position, with slippage raised to 10 bps a
+  side (these are smaller, less liquid stocks).
+- A candidate PASSES if: mean RankIC ≥ 0.03, Newey-West t ≥ 2.0, mean net top-10 excess per
+  rebalance > 0, and positive RankIC in at least 2 of the 3 calendar years (2024 part, 2025, 2026).
+- Choosing: if more than one passes, take the highest t; if the top two are within 0.3 of
+  each other, take the simpler one (B, then A, then C). If none passes, change nothing and
+  keep paper trading the live picks.
