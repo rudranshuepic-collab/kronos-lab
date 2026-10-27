@@ -4,6 +4,9 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const SVGNS = "http://www.w3.org/2000/svg";
 const QUICK = ["RELIANCE", "HDFCBANK", "TCS", "INFY", "ITC", "SBIN"];
 let realitySummary = null;
+// Result of the pre-registered fresh-stock test (TRIALS.md, trials 14-16, experiments branch).
+// It overrides the Nifty 50 verdict: an edge that vanishes on new stocks isn't an edge.
+const FRESH_TEST = { date: "27 Oct 2026", stocks: 136, months: 26, rankIc: -0.001, passed: false };
 let lastForecast = null;
 let status = null;
 let scanCache = null;
@@ -110,6 +113,9 @@ function renderStrip(summary) {
   if (!summary || !summary.ready) {
     strip.classList.add("pending");
     strip.innerHTML = "<strong>Not tested yet.</strong> <span>Treat every forecast as unproven until the reality check finishes.</span>";
+  } else if (!FRESH_TEST.passed) {
+    strip.classList.add("fail");
+    strip.innerHTML = `<strong>No proven edge.</strong> <span>Kronos looked promising on the Nifty 50, but on ${FRESH_TEST.stocks} stocks it had never been tested on, its rankings were no better than random. Research and paper tracking only. Don't trade these picks with real money.</span>`;
   } else if (summary.gate.passed) {
     strip.classList.add("pass");
     strip.innerHTML = `<strong>Passed the reality check.</strong> <span>Kronos ranked stocks better than chance over ${summary.periods} months. Paper-trade it before using real money.</span>`;
@@ -326,18 +332,23 @@ function renderReality(s) {
   const passed = s.gate.passed;
   const ic = s.mean_rank_ic, mic = s.mom_mean_rank_ic;
   const close = !passed && ic >= s.gate.rank_ic_min && s.t_stat >= 1.5;
-  const headline = passed
+  const freshFail = !FRESH_TEST.passed;
+  const headline = freshFail
+    ? "No proven edge: the Nifty 50 result didn't hold up on new stocks."
+    : passed
     ? "Kronos ranked stocks better than chance on data it never saw."
     : close
       ? "Promising: Kronos beat random on data it never saw, but it isn't proven yet."
       : ic > 0
         ? "Kronos leaned the right way slightly, but not reliably enough to trade."
         : "Kronos's rankings didn't beat a coin flip on data it never saw.";
-  const why = close
+  const why = freshFail
+    ? ` On the Nifty 50 it looked promising (score ${ic.toFixed(3)}, consistency ${s.t_stat.toFixed(2)}). Then, in a test whose rules were fixed before it ran, it ranked ${FRESH_TEST.stocks} Nifty 200 stocks it had never been tested on over the same ${FRESH_TEST.months} months, and scored ${FRESH_TEST.rankIc.toFixed(3)}: no better than random. The Nifty 50 result was most likely luck from testing many ideas on the same 50 stocks. The numbers below are the Nifty 50 test, kept for the record.`
+    : close
     ? ` It clears the score bar but its consistency is ${s.t_stat.toFixed(2)} against the ${s.gate.t_min} needed, so luck can't be ruled out yet. Each new month adds evidence; this page updates itself.`
     : "";
   out.innerHTML = `
-    <div class="verdict ${passed ? "pass" : close ? "pending" : "fail"}">
+    <div class="verdict ${freshFail ? "fail" : passed ? "pass" : close ? "pending" : "fail"}">
       <h2>${headline}</h2>
       <p>Tested on ${s.periods} months (${fmtDate(s.first, { month: "short", year: "numeric" })} to ${fmtDate(s.last, { month: "short", year: "numeric" })}), about ${s.stocks_per_period} Nifty 50 stocks each month, forecasting ${s.horizon_days} trading days ahead. To pass, the average ranking score must be at least ${s.gate.rank_ic_min} and statistically solid (t of ${s.gate.t_min} or more), and its picks must beat the index after costs.${why}</p>
     </div>
