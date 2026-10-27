@@ -61,9 +61,16 @@ These numbers are honest and must stay honest:
 
 ## Hard rules (do not break these)
 
-1. **No LLM or AI in the trade decision path.** The pipeline that produces picks must stay
-   deterministic Python. LLMs are fine for research, summaries and code, never for choosing
-   or sizing trades.
+1. **AI signals are the point of this project; make them as accurate as possible.** Kronos is
+   an AI model and is the core signal. Better models, fine-tuning, ensembles and new
+   ML features are all welcome, as long as each one is (a) reproducible: fixed weights,
+   fixed seed, versioned in the ledger's `model` column; and (b) testable without look-ahead
+   on data it never trained on, and passes the gate in rule 5.
+   **Chat-style LLMs (ChatGPT, Claude, Gemini, etc.) must not pick or size trades directly.**
+   They already know what happened after any past date, so they can't be backtested
+   honestly, and their answers vary run to run. Use them for research, news summaries and
+   writing code. An LLM-derived feature may enter the signal only after it passes a
+   forward-only paper test of at least 3 months.
 2. **Only out-of-sample results count.** Kronos's training data ends June 2024. Never
    fine-tune or tune settings on a period and then report results on that same period.
    Hold out the months you test on.
