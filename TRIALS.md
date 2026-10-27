@@ -17,9 +17,9 @@ Every configuration ever evaluated against the Reality Check or ledger, in order
 | 11 | 2026-10-27 | Reversal check on trial-2 forecasts: regress Kronos ranks on 5d/21d reversal, 12-1 momentum, 60d vol | Jul 2024 – Aug 2026 | residual 0.028 | 0.76 (NW) | – | Finding: 58% of Kronos's ranking is explained by these factors; the rest isn't significant |
 | 12 | 2026-10-27 | Baseline factor: plain 5-day reversal, same portfolio rules | Jul 2024 – Aug 2026 | 0.061 | 2.07 (NW) | +4.6% total top-10 net | Comparison only |
 | 13 | 2026-10-27 | Baseline factor: plain 21-day reversal, same portfolio rules | Jul 2024 – Aug 2026 | 0.045 | 1.21 (NW) | +19.0% total top-10 net | Comparison only |
-| 14 | 2026-10-27 | Fresh-stock test A: Kronos as live (T=1.0, samples=8, 256/20) on the Nifty Next 150. Pre-registered, result pending | Jul 2024 – Aug 2026, 150 new stocks | pending | pending | pending | pending |
-| 15 | 2026-10-27 | Fresh-stock test B: plain 21-day reversal on the Nifty Next 150. Pre-registered, result pending | same | pending | pending | pending | pending |
-| 16 | 2026-10-27 | Fresh-stock test C: 50/50 rank blend of A and B on the Nifty Next 150. Pre-registered, result pending | same | pending | pending | pending | pending |
+| 14 | 2026-10-27 | Fresh-stock test A: Kronos as live (T=1.0, samples=8, 256/20) on the Nifty Next 150 (pre-registered) | Jul 2024 – Aug 2026, ~136 new stocks/month | -0.0006 | -0.02 (NW) | +0.79%/rebal, +16.1% total (top-3 months = 110% of excess) | FAIL |
+| 15 | 2026-10-27 | Fresh-stock test B: plain 21-day reversal on the Nifty Next 150 (pre-registered) | same | -0.0151 | -0.41 (NW) | -0.59%/rebal, -16.3% total | FAIL |
+| 16 | 2026-10-27 | Fresh-stock test C: 50/50 rank blend of A and B on the Nifty Next 150 (pre-registered) | same | -0.0093 | -0.23 (NW) | +0.56%/rebal, +10.1% total (top-3 months = 117%) | FAIL |
 ## Pre-registered rules for trials 3–10 (written before any result was seen)
 
 - Same 26 month-end rebalance dates for every combo (last trading day of Jul 2024 … Aug 2026),
@@ -63,3 +63,16 @@ Every configuration ever evaluated against the Reality Check or ledger, in order
 - Choosing: if more than one passes, take the highest t; if the top two are within 0.3 of
   each other, take the simpler one (B, then A, then C). If none passes, change nothing and
   keep paper trading the live picks.
+
+## Outcome of trials 14–16 (2026-10-27)
+
+- **None of the three passed. Nothing changes.**
+- On 150 stocks it had never been tested on, Kronos's ranking score was zero (RankIC −0.0006,
+  t −0.02). Plain reversal and the blend were slightly negative. The Nifty 50 edge from
+  trials 2–13 did **not** carry over to new stocks. The most likely reason is that the earlier
+  result was partly luck from testing many ideas on the same 50 stocks; a large-cap-only
+  effect is also possible.
+- Kronos's top-10 picks still showed +16% total, but the best 3 months produced more than
+  all of that while the ranking score was zero. That's the signature of luck, not skill.
+- Conclusion: Kronos-small as configured has **no proven edge**. Keep it for research and paper
+  tracking only. Total trials so far: 16.
